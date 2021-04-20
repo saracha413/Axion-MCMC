@@ -155,7 +155,8 @@ def initiate(params):
 def MCMC_run(params, numsteps=10, outFile=None):
 
     if outFile == None:
-        outFile = 'vary_ac_and_frac_ac_naxion='+str(params['n_axion'])+'_log10_ac='+str(params['log10_axion_ac'])+'.txt'
+        outFile = #'PHENO_vary_ac_and_frac_fld_naxion='+str(params['n_axion'])+'_log10_ac='+str(params['log10_a_c'])+'.txt'
+        'PHENO_vary_ac_and_frac_fld_naxion='+'ugh'+'_log10_ac='+str(params['log10_a_c'])+'.txt'
 
     burn_in_steps = 5
 
@@ -164,8 +165,8 @@ def MCMC_run(params, numsteps=10, outFile=None):
 
     #starting chain
     JSD_current = JSD(Dl_model, Dl_data)
-    p_current = [params['log10_axion_ac'], params['log10_fraction_axion_ac']] #-3.5 #whatever params you're varying in MCMC
-    stdDevs = [0.5, 0.1] #standard deviation for params
+    p_current = [params['log10_a_c'], params['fraction_fld_ac']] #-3.5 #whatever params you're varying in MCMC
+    stdDevs = [0.5, 0.005] #standard deviation for params
 
     #check if file to write to exists; create it if not
     #if not os.path.isfile(outFile):
@@ -179,7 +180,7 @@ def MCMC_run(params, numsteps=10, outFile=None):
         ##reset params array
         #fullParams = params
         ####TO-DO: write this fxn to use whatever variable param you want. hard-coded for now
-        [params['log10_axion_ac'], params['log10_fraction_axion_ac']] = p_propose
+        [params['log10_a_c'], params['fraction_fld_ac']] = p_propose
 
         l_propose, Cl_propose, Dl_propose = get_power(params)
 
