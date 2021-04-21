@@ -155,8 +155,8 @@ def initiate(params):
 def MCMC_run(params, numsteps=10, outFile=None):
 
     if outFile == None:
-        outFile = #'PHENO_vary_ac_and_frac_fld_naxion='+str(params['n_axion'])+'_log10_ac='+str(params['log10_a_c'])+'.txt'
-        'PHENO_vary_ac_and_frac_fld_naxion='+'ugh'+'_log10_ac='+str(params['log10_a_c'])+'.txt'
+        #outFile = 'PHENO_vary_ac_and_frac_fld_naxion='+str(params['n_axion'])+'_log10_ac='+str(params['log10_a_c'])+'.txt'
+        outFile = 'PHENO_vary_ac_and_frac_fld_naxion='+'ugh'+'_log10_ac='+str(params['log10_a_c'])+'.txt'
 
     burn_in_steps = 5
 
@@ -175,6 +175,7 @@ def MCMC_run(params, numsteps=10, outFile=None):
 
         write_params_to_file = False
 
+/Users/saravannah/Axion-MCMC/axion_MCMC/PHENO_vary_ac_and_frac_fld_naxion=ugh_log10_ac=-3.2700317525356115.txt
         #suggest a random value for params from a normal distrib centered on current values
         p_propose = [norm(p_current[0], stdDevs[0]).rvs(), norm(p_current[1], stdDevs[1]).rvs()]
         ##reset params array
