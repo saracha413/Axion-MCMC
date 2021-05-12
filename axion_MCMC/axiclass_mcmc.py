@@ -175,7 +175,6 @@ def MCMC_run(params, numsteps=10, outFile=None):
 
         write_params_to_file = False
 
-/Users/saravannah/Axion-MCMC/axion_MCMC/PHENO_vary_ac_and_frac_fld_naxion=ugh_log10_ac=-3.2700317525356115.txt
         #suggest a random value for params from a normal distrib centered on current values
         p_propose = [norm(p_current[0], stdDevs[0]).rvs(), norm(p_current[1], stdDevs[1]).rvs()]
         ##reset params array
