@@ -1,0 +1,213 @@
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from classy import Class
+
+#from .axion_MCMC_utilites import MCMC_run 
+import axion_MCMC_utilities
+import multiprocessing as mp
+from multiprocessing import Pool
+import time
+
+
+#function for ignoring comments in ini files
+def ignore_comment(line):
+    if '#' in line:
+        #save all elements up to the #
+        line = line[:line.find('#')]
+    if '*' in line:
+        line = ''
+
+    return line
+
+##This is from AxiCLASS
+
+def read_ini_file(inifile, loc = ''):
+
+# Function to read ini file and save it in a dictionary that can be passed to classy
+# Takes the required argument inifile = filename with extension
+# Takes the optional argument loc = location of your ini file, ending in a '/'
+# Returns dictionary of everything contained in your ini file
+#
+    inivals = {}
+
+    with open(loc + inifile) as f: # opening initialisation file as f
+        content = f.readlines() # reading the initialisation file and turning it into a list
+
+    q = {} # initialise q as an empty dictionary
+    for s in content: # iterates over lines in .ini file and saves information, turning numbers into floats from strings
+        #SV --- added this skip over commented sections
+        s = ignore_comment(s)
+        if s != '':
+            if is_number(s[s.find('=')+2:]):
+                q[s[:s.find(' =')]] = float(s[s.find('=')+2:])
+            else:
+                q[s[:s.find(' =')]] = s[s.find('=')+2:-1]
+
+    q.pop('')
+    return q # inivals dict has dict of initial values at key given by 'original'
+
+input_pars = read_ini_file('MOD_pheno_axion_transition_tests.ini', loc='/Users/saravannah/Axion-MCMC/axion_MCMC/')
+
+
+start = time.time()
+print('start time is ', start)
+pool = mp.Pool(mp.cpu_count()+2)
+
+num_walkers = 10
+
+#doing this to reduce memory being hogged
+og_ac = float(input_pars['log10_a_c'])
+og_frac_ac = float(input_pars['fraction_fld_ac'])
+pars = input_pars
+#pars['n_axion'] = 2
+
+for i in range(num_walkers):
+    pars['log10_a_c'] = np.random.normal(og_ac, 0.5)
+    pars['fraction_fld_ac'] = np.random.normal(og_frac_ac, 0.005)
+    pool.apply_async(MCMC_run, args=(pars,))
+
+
+#pool.apply_async(MCMC_run, args=(input_pars,))
+
+pool.close()
+pool.join()
+
+
+
+
+print('All done! Completed in ', time.time()-start, ' seconds.')
+
+
+
+#Bubble sorting algortihm from https://realpython.com/sorting-algorithms-python/#the-bubble-sort-algorithm-in-python
+
+def reorganize(log_ac_vals, JSD_vals):
+    new_log_ac_vals, new_JSD_vals = log_ac_vals, JSD_vals
+    n = len(log_ac_vals)
+    
+    for i in range(n):
+        already_sorted = True
+        
+        for j in range(n-i-1):
+            if new_log_ac_vals[j] > new_log_ac_vals[j+1]:
+                new_log_ac_vals[j], new_log_ac_vals[j+1] = new_log_ac_vals[j+1], new_log_ac_vals[j]
+                new_JSD_vals[j], new_JSD_vals[j+1] = new_JSD_vals[j+1], new_JSD_vals[j]
+                
+                already_sorted = False
+                
+        if already_sorted:
+            break
+            
+    return new_log_ac_vals, new_JSD_vals
+
+
+new_log_ac_n2, new_log_JSD_n2 = reorganize(log_ac_n2, JSD_n2)
+
+plt.plot(new_log_ac_n2, new_log_JSD_n2 )
+plt.scatter(log_ac_n2, JSD_n2)
+
+log_ac_n2, JSD_n2 = np.loadtxt('vary_ac_naxion=2.txt', unpack=True)
+log_ac_n3, JSD_n3 = np.loadtxt('vary_ac_naxion=3.txt', unpack=True)
+log_ac_n10, JSD_n10 = np.loadtxt('vary_ac_naxion=10.txt', unpack=True)
+
+log_ac_n2, JSD_n2 = reorganize(log_ac_n2, JSD_n2)
+log_ac_n3, JSD_n3 = reorganize(log_ac_n3, JSD_n3)
+log_ac_n10, JSD_n10 = reorganize(log_ac_n10, JSD_n10)
+
+
+plt.plot(log_ac_n2, JSD_n2, label='n=2')
+plt.plot(log_ac_n3, JSD_n3, label='n=3')
+plt.plot(log_ac_n10, JSD_n10, label='n=10')
+plt.xlabel('log10_ac')
+plt.ylabel('JSD')
+
+plt.ylim([0.0005,0.0025])
+#plt.xlim([-3.2,-2.9])
+plt.legend()
+
+plt.savefig('JSD_vs_log10_ac.pdf')
+
+plt.scatter(log_ac_n2, JSD_n2)
+plt.xlabel('log10_ac')
+plt.ylabel('JSD')
+plt.savefig('JSD_vs_log10_ac_n=2.pdf')
+
+### to-do: make l_max set by truncation
+
+def MCMC_run(params, numsteps, outFile):
+    
+    burn_in_steps = 5
+    
+    #Dl_model, Dl_data, l_max = initiate(params)
+    Dl_model, Dl_data = initiate(params)
+    
+    #starting chain
+    JSD_current = JSD(Dl_model, Dl_data)
+    p_current = -3.5 #whatever params you're varying in MCMC
+    stdDevs = 0.5 #standard deviation for params
+    
+    #check if file to write to exists; create it if not
+    #if not os.path.isfile(outFile):
+    #
+    
+    #with open(outFile, 'a') as fileObject:
+    #    line = np.append(p_current, JSD_current)
+    #    np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
+    #    fileObject.write('\n')
+        
+    #tqdm progress bar
+    for t in tnrange(numsteps, desc='MCMC loop'):
+        
+        write_params_to_file = False
+        
+        #suggest a random value for params from a normal distrib centered on current values
+        p_propose = norm(p_current, stdDevs).rvs()
+        ##reset params array
+        #fullParams = params
+        ####TO-DO: write this fxn to use whatever variable param you want. hard-coded for now
+        params['log10_axion_ac'] = p_propose
+        
+        l_propose, Cl_propose, Dl_propose = get_power(params)
+        
+        JSD_propose = JSD(Dl_propose, Dl_data)
+        x = JSD_propose/JSD_current
+        #JSD is smaller so take step
+        #if x < 1:
+        #    p_current = p_propose
+        #    JSD_current = JSD_propose
+        #    write_params_to_file = True
+        ##Metropolis-Hastings - small chance of taking step even it doesn't have a lower JSD
+        ##helps keep walker from getting stuck
+        #####TO-DO: check lit to see if this acceptance is best way of doing this
+        #elif np.random.rand() < (1/x)**2:
+        #        p_current = p_propose
+        #        JSD_current = JSD_propose
+        #        print(p_current, JSD_current)
+        #        write_params_to_file = True
+        
+        #Metropolis-Hastings acceptance criterion
+        #from https://github.com/AstroHackWeek/AstroHackWeek2015/blob/3e13d786ecb86fd4757c08ab63cfc08135933556/hacks/sklearn-CV-Bayes.py
+        if x > np.random.uniform():
+            p_current = p_propose
+            JSD_current = JSD_propose
+            write_params_to_file = True
+                
+            if t > burn_in_steps:
+                with open(outFile, 'a') as fileObject:
+                    line = np.append(p_current, JSD_current)
+                    np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
+                    fileObject.write('\n')
+
+        
+    fileObject.close()
+
+MCMC_run(input_pars, 200, 'log_ac_n=2')
+
+log_ac_vals, JSD_vals = np.loadtxt('test_log_ac.txt', unpack=True)
+
+
+plt.scatter(log_ac_vals, JSD_vals)
+plt.xlabel('log10_ac')
+plt.ylabel('JSD')

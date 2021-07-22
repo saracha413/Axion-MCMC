@@ -1,8 +1,4 @@
-###Sara Vannah
 
-
-# import necessary modules
-#%matplotlib inline
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,14 +7,9 @@ from scipy.optimize import fsolve
 from scipy.interpolate import interp1d
 from scipy.stats import norm
 import math
-
 import os, os.path
 
-
-
-#------------------------------------------------------------------------------------------------------
-#                                    Helper functions
-#------------------------------------------------------------------------------------------------------
+import time
 
 ##This is from AxiCLASS
 def is_number(s):
@@ -46,12 +37,18 @@ def ignore_comment(line):
         line = ''
 
     return line
-    
-    
+
+
+pars_lcdm = {'omega_b':0.022032,
+'omega_cdm':0.12038,
+'h':0.67556,
+'A_s':2.215e-9,
+'n_s':0.9619,
+'tau_reio':0.0925}
+
 ##This is from AxiCLASS
 
 def read_ini_file(inifile, loc = ''):
-
 # Function to read ini file and save it in a dictionary that can be passed to classy
 # Takes the required argument inifile = filename with extension
 # Takes the optional argument loc = location of your ini file, ending in a '/'
@@ -75,9 +72,7 @@ def read_ini_file(inifile, loc = ''):
     q.pop('')
     return q # inivals dict has dict of initial values at key given by 'original'
 
-#------------------------------------------------------------------------------------------------------
-#                               Information theory
-#------------------------------------------------------------------------------------------------------
+
 
 #calculate modal fraction for a power spectrum
 def modal(dls):
@@ -91,23 +86,17 @@ def JSD(mod_Dl, dat_Dl):
     r = 1/2 * (p+q)
     
     return 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
-
-
-#------------------------------------------------------------------------------------------------------
-#                               Cosmology
-#------------------------------------------------------------------------------------------------------
-
-###TO-DO: remove hardcoding here
-#input_pars = read_ini_file('example_axiCLASS.ini', loc='/Users/saravannah/axiclass/')
-
-
+    
+    
+    
+    
 #get power spectrum from CLASS for a given parameter set
 #currently set to TT only
 #modified from https://github.com/lesgourg/class_public/wiki/Python-wrapper
 def get_power(params):
-    
+        
     l_max = 2000
-    
+
     #create an instance of CLASS wrapper w/correct params
     cosmo = Class()
     cosmo.set(params)
@@ -129,11 +118,6 @@ def get_power(params):
     cosmo.struct_cleanup()
     cosmo.empty()
     
-    return ls, Cls, Dls
-    
-#------------------------------------------------------------------------------------------------------
-#                               MCMC
-#------------------------------------------------------------------------------------------------------
     
 ####TO-DO: add truncation scheme
 
@@ -143,67 +127,84 @@ def initiate(params):
     fileName = os.path.join(directory,'planck/planck_tt_spectrum_2018.txt')
     l_data, Dl_data, Dl_data_err_lo, Dl_data_err_hi = np.loadtxt(fileName, unpack = True)
     
+    ####TO-DO: add a_c to params (check axiCLASS)
+    #log10_axion_ac = -3.7
     
+    print('------------- read Planck input ----------')
     l_model, Cl_model, Dl_model = get_power(params)
+    
+    print('----------- got power ---------------')
     
     
     ##TO-DO: remove indexing when you add truncation scheme
     return Dl_model, Dl_data[:len(Dl_model)] #, l_max
+    
 
 
+    
+    return ls, Cls, Dls
 ### to-do: make l_max set by truncation
-def MCMC_run(params, numsteps=10, outFile=None):
 
-    if outFile == None:
-        #outFile = 'PHENO_vary_ac_and_frac_fld_naxion='+str(params['n_axion'])+'_log10_ac='+str(params['log10_a_c'])+'.txt'
-        outFile = 'PHENO_vary_ac_and_frac_fld_naxion='+'ugh'+'_log10_ac='+str(params['log10_a_c'])+'.txt'
+def MCMC_run(params, numsteps=200, outFile='',burn_in_steps=5):
 
-    burn_in_steps = 5
-
+    print('=------------ test: ', modal([1,2,3]))
+    
+    print('------------- initiating ---------------')
+    
     #Dl_model, Dl_data, l_max = initiate(params)
     Dl_model, Dl_data = initiate(params)
-
+    
+    print('------------- starting chain -------------')
+    
     #starting chain
     JSD_current = JSD(Dl_model, Dl_data)
-    p_current = [params['log10_a_c'], params['fraction_fld_ac']] #-3.5 #whatever params you're varying in MCMC
-    stdDevs = [0.5, 0.005] #standard deviation for params
-
-    #check if file to write to exists; create it if not
-    #if not os.path.isfile(outFile):
-
-    for t in range(numsteps):
-
+    p_current = [params['log10_axion_ac'], params['log10_fraction_axion_ac'], params['omega_cdm'], params['H0']] #whatever params you're varying in MCMC
+    stdDevs = [params['log10_axion_ac']*0.05, params['log10_fraction_axion_ac']*0.05, params['omega_cdm']*0.05, params['H0']*0.05] #standard deviation for params
+    
+    
+    
+    
+    if outFile=='':
+        outFile = 'vary_ac_fEDE_wCDM_H0'+str(time.time())+'.txt'
+    
+    print('outFile is ', outFile)
+    with open(outFile, 'a') as fileObject:
+        line = np.append(p_current, JSD_current)
+        np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
+        fileObject.write('\n')
+        
+    for i in range(numsteps):
+        
         write_params_to_file = False
-
+        
         #suggest a random value for params from a normal distrib centered on current values
-        p_propose = [norm(p_current[0], stdDevs[0]).rvs(), norm(p_current[1], stdDevs[1]).rvs()]
+        p_propose = norm(p_current, stdDevs).rvs()
         ##reset params array
         #fullParams = params
         ####TO-DO: write this fxn to use whatever variable param you want. hard-coded for now
-        [params['log10_a_c'], params['fraction_fld_ac']] = p_propose
-
+        params['log10_axion_ac'] = p_propose[0]
+        params['log10_fraction_axion_ac'] = p_propose[1]
+        params['omega_cdm'] = p_propose[2]
+        params['H0'] = p_propose[3]
+        
         l_propose, Cl_propose, Dl_propose = get_power(params)
-
+        
         JSD_propose = JSD(Dl_propose, Dl_data)
         x = JSD_propose/JSD_current
-
+        
         #Metropolis-Hastings acceptance criterion
         #from https://github.com/AstroHackWeek/AstroHackWeek2015/blob/3e13d786ecb86fd4757c08ab63cfc08135933556/hacks/sklearn-CV-Bayes.py
         if x > np.random.uniform():
             p_current = p_propose
             JSD_current = JSD_propose
             write_params_to_file = True
-            
+                
             if t > burn_in_steps:
                 with open(outFile, 'a') as fileObject:
-                    print('writing to file')
+                    print('entered into outFile')
                     line = np.append(p_current, JSD_current)
                     np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
                     fileObject.write('\n')
-                
 
-
+        
     fileObject.close()
-    
-
-
