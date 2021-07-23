@@ -118,6 +118,7 @@ def get_power(params):
     cosmo.struct_cleanup()
     cosmo.empty()
     
+    return ls, Cls, Dls
     
 ####TO-DO: add truncation scheme
 
@@ -130,11 +131,8 @@ def initiate(params):
     ####TO-DO: add a_c to params (check axiCLASS)
     #log10_axion_ac = -3.7
     
-    print('------------- read Planck input ----------')
     l_model, Cl_model, Dl_model = get_power(params)
-    
-    print('----------- got power ---------------')
-    
+
     
     ##TO-DO: remove indexing when you add truncation scheme
     return Dl_model, Dl_data[:len(Dl_model)] #, l_max
@@ -146,10 +144,7 @@ def initiate(params):
 ### to-do: make l_max set by truncation
 
 def MCMC_run(params, numsteps=200, outFile='',burn_in_steps=5):
-
-    print('=------------ test: ', modal([1,2,3]))
     
-    print('------------- initiating ---------------')
     
     #Dl_model, Dl_data, l_max = initiate(params)
     Dl_model, Dl_data = initiate(params)
@@ -159,26 +154,37 @@ def MCMC_run(params, numsteps=200, outFile='',burn_in_steps=5):
     #starting chain
     JSD_current = JSD(Dl_model, Dl_data)
     p_current = [params['log10_axion_ac'], params['log10_fraction_axion_ac'], params['omega_cdm'], params['H0']] #whatever params you're varying in MCMC
-    stdDevs = [params['log10_axion_ac']*0.05, params['log10_fraction_axion_ac']*0.05, params['omega_cdm']*0.05, params['H0']*0.05] #standard deviation for params
+    stdDevs = [float(params['log10_axion_ac'])*0.05, float(params['log10_fraction_axion_ac'])*0.05, float(params['omega_cdm'])*0.05, float(params['H0'])*0.05] #standard deviation for params
+    stdDevs = [abs(x) for x in stdDevs]
+    stdDevs = [str(x) for x in stdDevs] #Python have trouble with type of data, recasting float to str
     
     
     
     
     if outFile=='':
-        outFile = 'vary_ac_fEDE_wCDM_H0'+str(time.time())+'.txt'
+        outFile = 'July_23/vary_ac_fEDE_wCDM_H0'+str(time.time())+'.txt'
     
-    print('outFile is ', outFile)
     with open(outFile, 'a') as fileObject:
         line = np.append(p_current, JSD_current)
+        line = [float(x) for x in line] #Python have trouble with type of data, recasting str to float
         np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
         fileObject.write('\n')
         
-    for i in range(numsteps):
+    for t in range(numsteps):
         
         write_params_to_file = False
         
         #suggest a random value for params from a normal distrib centered on current values
-        p_propose = norm(p_current, stdDevs).rvs()
+        
+        #norm(p_current, stdDevs).rvs()
+        #not sure why the above line isn't working anymore, but here's a less Pythonic way of getting new values
+        #for i in range(len(p_current)):
+        #    p_propose[i] = norm(p_current[i], stdDevs[i]).rvs()
+        #ugh okay one more way to get new random values
+        p_propose = np.random.normal(p_current, stdDevs)
+       
+       
+       
         ##reset params array
         #fullParams = params
         ####TO-DO: write this fxn to use whatever variable param you want. hard-coded for now
@@ -203,6 +209,7 @@ def MCMC_run(params, numsteps=200, outFile='',burn_in_steps=5):
                 with open(outFile, 'a') as fileObject:
                     print('entered into outFile')
                     line = np.append(p_current, JSD_current)
+                    line = [float(x) for x in line] #Python have trouble with type of data, recasting str to float
                     np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
                     fileObject.write('\n')
 
