@@ -8,7 +8,7 @@ from scipy.interpolate import interp1d
 from scipy.stats import norm
 import math
 import os, os.path
-
+from tqdm import tqdm
 import time
 
 
@@ -81,8 +81,22 @@ def JSD(mod_Dl, dat_Dl):
     p, q = modal(mod_Dl), modal(dat_Dl)
     r = 1/2 * (p+q)
     
+    #try:
+    #    return 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
+    #except RuntimeWarning:
+    #    print('p is ', p)
+    #    print('q is ', q)
+    #    pass
+    #if any(p/r <= 0):
+    #    for i in range(len(p)):
+    #        if p[i]/r[i] <=0:
+    #            print('p is ', p[i], ' for i = ', i)
+    #if any(q/r <= 0):
+    #    for i in range(len(q)):
+    #        if q[i]/r[i] <=0:
+    #            print('q is ', q[i], ' for i = ', i)
     return 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
-    
+        
     
     
     
@@ -180,7 +194,7 @@ class Chain:
     def say_hi(self, phrase):
         print(phrase)
     
-    def MCMC_run(self, numsteps=50, burn_in_steps=5):
+    def MCMC_run(self, numsteps=2000, burn_in_steps=100):
     
         params = self.params
         num_steps = self.num_steps
@@ -209,21 +223,12 @@ class Chain:
         #count steps accepted so can calculate acceptance fraction
         steps_accepted = 0
         
-        for t in range(num_steps):
+        for t in tqdm(range(num_steps)):
             
             write_params_to_file = False
-            
             #suggest a random value for params from a normal distrib centered on current values
-            
-            #norm(p_current, stdDevs).rvs()
-            #not sure why the above line isn't working anymore, but here's a less Pythonic way of getting new values
-            #for i in range(len(p_current)):
-            #    p_propose[i] = norm(p_current[i], stdDevs[i]).rvs()
-            #ugh okay one more way to get new random values
             p_propose = np.random.normal(p_current, stdDevs)
-           
-           
-           
+            
             ##reset params array
             #fullParams = params
             ####TO-DO: write this fxn to use whatever variable param you want. hard-coded for now
@@ -232,26 +237,34 @@ class Chain:
             params['omega_cdm'] = p_propose[2]
             params['H0'] = p_propose[3]
             
-            l_propose, Cl_propose, Dl_propose = get_power(params)
-            
-            JSD_propose = JSD(Dl_propose, Dl_data)
-            x = JSD_propose/JSD_current
-            
+            try:
+                l_propose, Cl_propose, Dl_propose = get_power(params)
+                    
+                JSD_propose = JSD(Dl_propose, Dl_data)
+                x = JSD_propose/JSD_current
+            except:
+                #CLASS didn't converge, keep MCMC going but ensure this step isn't accepted
+                x = 0
+                pass
+                
+                
             #Metropolis-Hastings acceptance criterion
             #from https://github.com/AstroHackWeek/AstroHackWeek2015/blob/3e13d786ecb86fd4757c08ab63cfc08135933556/hacks/sklearn-CV-Bayes.py
-            if x > np.random.uniform():
+            
+            ###ISN'T THIS BACKWARDS?????
+            #lower JSD = better, so want lower x = higher chance of acceptance, right?
+            if x < np.random.uniform():
                 p_current = p_propose
                 JSD_current = JSD_propose
                 write_params_to_file = True
-                    
-                if t > burn_in_steps:
-                    with open(outFile, 'a') as fileObject:
-                        steps_accepted = steps_accepted + 1
-                        #print('Acceptance fraction is ', str(steps_accepted/(t-burn_in_steps)))
-                        line = np.append(p_current, JSD_current)
-                        line = [float(x) for x in line] #Python have trouble with type of data, recasting str to float
-                        np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
-                        fileObject.write('\n')
-            
+                
+            if t > burn_in_steps:
+                with open(outFile, 'a') as fileObject:
+                    steps_accepted = steps_accepted + 1
+                    #print('Acceptance fraction is ', str(steps_accepted/(t-burn_in_steps)))
+                    line = np.append(p_current, JSD_current)
+                    line = [float(x) for x in line] #Python have trouble with type of data, recasting str to float
+                    np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
+                    fileObject.write('\n')
         fileObject.close()
         
