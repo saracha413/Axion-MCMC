@@ -225,7 +225,6 @@ class Chain:
         
         for t in tqdm(range(num_steps)):
             
-            write_params_to_file = False
             #suggest a random value for params from a normal distrib centered on current values
             p_propose = np.random.normal(p_current, stdDevs)
             
@@ -253,18 +252,17 @@ class Chain:
             
             ###ISN'T THIS BACKWARDS?????
             #lower JSD = better, so want lower x = higher chance of acceptance, right?
-            if x < np.random.uniform():
+            if x < 1+np.random.uniform():
                 p_current = p_propose
                 JSD_current = JSD_propose
-                write_params_to_file = True
+                steps_accepted = steps_accepted + 1
                 
             if t > burn_in_steps:
                 with open(outFile, 'a') as fileObject:
-                    steps_accepted = steps_accepted + 1
-                    #print('Acceptance fraction is ', str(steps_accepted/(t-burn_in_steps)))
                     line = np.append(p_current, JSD_current)
                     line = [float(x) for x in line] #Python have trouble with type of data, recasting str to float
                     np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
                     fileObject.write('\n')
         fileObject.close()
+        print('Acceptance fraction is ', steps_accepted/num_steps)
         
