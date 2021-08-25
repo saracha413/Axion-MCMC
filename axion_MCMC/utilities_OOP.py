@@ -12,6 +12,11 @@ from tqdm import tqdm
 import time
 
 
+#universal variables
+l_max = 2000 #truncations for l values, set to match first paper
+l_min = 90
+
+
 
 
 ##This is from AxiCLASS
@@ -95,7 +100,14 @@ def JSD(mod_Dl, dat_Dl):
     #    for i in range(len(q)):
     #        if q[i]/r[i] <=0:
     #            print('q is ', q[i], ' for i = ', i)
-    return 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
+
+    Djs = 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
+
+    if Djs == 0:
+        print('Djs = 0!')
+        print('First term is ', np.nansum(p*np.log(p/r)),' and second term is ',  np.nansum(q*np.log(q/r)))
+
+    return Djs
         
     
     
@@ -105,7 +117,7 @@ def JSD(mod_Dl, dat_Dl):
 #modified from https://github.com/lesgourg/class_public/wiki/Python-wrapper
 def get_power(params):
         
-    l_max = 2000
+
 
     #create an instance of CLASS wrapper w/correct params
     cosmo = Class()
@@ -117,8 +129,8 @@ def get_power(params):
     #lensed cl until l=l_max
     output = cosmo.lensed_cl(l_max)
     #CHECK THAT THIS IS INDEXED CORRECTLY --- NEED TO CHECK CLASS DOCUMENTATION ON OUTPUT OF LENSED_CL
-    ls = output['ell'][2:]
-    Cls = output['tt'][2:]
+    ls = output['ell'][l_min:]
+    Cls = output['tt'][l_min:]
     
     
     #ls = np.arange(l_max+1)
@@ -145,7 +157,7 @@ def initiate(params):
 
     
     ##TO-DO: remove indexing when you add truncation scheme
-    return Dl_model, Dl_data[:len(Dl_model)] #, l_max
+    return Dl_model, Dl_data[l_min-1:l_max] #, l_max
 
 #calculate Gelman-Rubin statistic to test for chain convergence
 #take an array of arrays of samples for each chain
@@ -188,13 +200,13 @@ class Chain:
         self.name = name
         self.params = params
         self.num_steps = num_steps
-        print('initiated chain with name ', self.name)
+        #print('initiated chain with name ', self.name)
         
         
-    def say_hi(self, phrase):
-        print(phrase)
+    #def say_hi(self, phrase):
+    #    print(phrase)
     
-    def MCMC_run(self, numsteps=2000, burn_in_steps=100):
+    def MCMC_run(self, numsteps=20, burn_in_steps=0):
     
         params = self.params
         num_steps = self.num_steps
@@ -202,7 +214,7 @@ class Chain:
         #Dl_model, Dl_data, l_max = initiate(params)
         Dl_model, Dl_data = initiate(params)
         
-        print('Starting chain')
+       #print('Starting chain')
         
         #starting chain
         JSD_current = JSD(Dl_model, Dl_data)
@@ -223,7 +235,9 @@ class Chain:
         #count steps accepted so can calculate acceptance fraction
         steps_accepted = 0
         
-        for t in tqdm(range(num_steps)):
+        for t in range(num_steps):
+
+            print('t is , ', t)
             
             #suggest a random value for params from a normal distrib centered on current values
             p_propose = np.random.normal(p_current, stdDevs)
@@ -247,11 +261,11 @@ class Chain:
                 pass
                 
                 
+            #if t%50 == 0:
+            #    print('Chain ',self.name,' has reached ', str(t/50), ' steps.')
             #Metropolis-Hastings acceptance criterion
             #from https://github.com/AstroHackWeek/AstroHackWeek2015/blob/3e13d786ecb86fd4757c08ab63cfc08135933556/hacks/sklearn-CV-Bayes.py
-            
-            ###ISN'T THIS BACKWARDS?????
-            #lower JSD = better, so want lower x = higher chance of acceptance, right?
+                
             if x < 1+np.random.uniform():
                 p_current = p_propose
                 JSD_current = JSD_propose
@@ -264,5 +278,5 @@ class Chain:
                     np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
                     fileObject.write('\n')
         fileObject.close()
-        print('Acceptance fraction is ', steps_accepted/num_steps)
+        #print('Acceptance fraction is ', steps_accepted/num_steps)
         

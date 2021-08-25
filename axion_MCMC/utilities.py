@@ -137,38 +137,11 @@ def initiate(params):
     ##TO-DO: remove indexing when you add truncation scheme
     return Dl_model, Dl_data[:len(Dl_model)] #, l_max
 
-#calculate Gelman-Rubin statistic to test for chain convergence
-#take an array of arrays of samples for each chain
-def grubin(samples, burn_in_steps, num_chains):
-    L = np.zeros(num_chains)
-    chain_mean = np.zeros(num_chains) #mean w/in chain
-    
-    for i in range(num_chains):
-        #remove burn-in steps
-        samples[i] = samples[burn_in_steps:len(samples[i])-1]
-        #get length of each chain
-        L[i] = len(samples[i])
-        #get mean within chain
-        #chain_mean[i] = 1/L[i] * np.sum(samples[i])
-        
-        
-    chain_mean = 1/L * np.sum(samples)
-    grand_mean = 1/num_chains * np.sum(chain_mean) #mean of means
-    B = L/(num_chains-1) * np.sum(chain_mean - grand_mean) #variance between chains
-    s = 1/(L-1) * np.sum(samples-chain_mean) #variance within chains
-    
-    #for j in range(num_chains):
-    #    s[j] = 1/(L-1) * np.sum(samples[i]-chain_mean[i])
-    
-    W = 1/num_chains * np.sum(s)**2 #weighted variance within chains
-    R = ((L-1)/L * W + 1/L * B)/W #Gelman-Rubin statistic
-    
-    return R
     
     
 ### to-do: make l_max set by truncation
 
-def MCMC_run(params, numsteps=200, outFile='',burn_in_steps=5):
+def MCMC_run(params, numsteps=2000, outFile='',burn_in_steps=100):
     
     
     #Dl_model, Dl_data, l_max = initiate(params)
@@ -187,7 +160,7 @@ def MCMC_run(params, numsteps=200, outFile='',burn_in_steps=5):
     
     
     if outFile=='':
-        outFile = 'July_27/vary_ac_fEDE_wCDM_H0'+str(time.time())+'.txt'
+        outFile = 'Aug_18_test/vary_ac_fEDE_wCDM_H0'+str(time.time())+'_n=3.txt'
     
     with open(outFile, 'a') as fileObject:
         line = np.append(p_current, JSD_current)
@@ -228,19 +201,21 @@ def MCMC_run(params, numsteps=200, outFile='',burn_in_steps=5):
         
         #Metropolis-Hastings acceptance criterion
         #from https://github.com/AstroHackWeek/AstroHackWeek2015/blob/3e13d786ecb86fd4757c08ab63cfc08135933556/hacks/sklearn-CV-Bayes.py
-        if x > np.random.uniform():
+        if x < 1 + np.random.uniform():
             p_current = p_propose
             JSD_current = JSD_propose
             write_params_to_file = True
-                
-            if t > burn_in_steps:
-                with open(outFile, 'a') as fileObject:
-                    steps_accepted = steps_accepted + 1
-                    #print('Acceptance fraction is ', str(steps_accepted/(t-burn_in_steps)))
-                    line = np.append(p_current, JSD_current)
-                    line = [float(x) for x in line] #Python have trouble with type of data, recasting str to float
-                    np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
-                    fileObject.write('\n')
 
-        
+        if t%50 == 0: 
+            print('Chain has made it through ', t, ' steps.')
+                
+        if t > burn_in_steps:
+            with open(outFile, 'a') as fileObject:
+                steps_accepted = steps_accepted + 1
+                #print('Acceptance fraction is ', str(steps_accepted/(t-burn_in_steps)))
+                line = np.append(p_current, JSD_current)
+                line = [float(x) for x in line] #Python have trouble with type of data, recasting str to float
+                np.savetxt(fileObject,np.transpose(line),delimiter=',',newline = ' ')
+                fileObject.write('\n')
     fileObject.close()
+

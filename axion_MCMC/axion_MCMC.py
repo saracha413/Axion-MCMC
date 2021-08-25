@@ -9,6 +9,8 @@ from multiprocessing import Pool
 from multiprocessing import Process
 import time
 
+
+print('start')
 #Bubble sorting algortihm from https://realpython.com/sorting-algorithms-python/#the-bubble-sort-algorithm-in-python
 
 def reorganize(log_ac_vals, JSD_vals):
@@ -42,6 +44,7 @@ def reorganize(log_ac_vals, JSD_vals):
 
 if __name__ == '__main__':
 
+    print('doing something')
     input_pars = utilities.read_ini_file('example_axiCLASS.ini', loc='/Users/saravannah/Axion-MCMC/axion_MCMC/')
 
 
