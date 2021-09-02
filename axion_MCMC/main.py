@@ -7,7 +7,7 @@ import corner #for triangle plots
 
 if __name__ == '__main__':
 
-	num_walkers = 1
+	num_walkers = 3
 	l_min = 90
 	l_max = 2000
 	num_steps = 1
@@ -57,10 +57,10 @@ if __name__ == '__main__':
 
 	pool.close()
 
-	#ndim, nsamples = 4, num_steps
+	ndim, nsamples = 4, num_steps
 
-	#samples = np.array(results)
-	#samples = samples.T
+	samples = np.array(results)
+	samples = samples.T
 
 	#figure = corner.corner(samples, 
 	#                       labels=[r"$f_{EDE}(a_c)$", r"$log_{10}(a_c)$", r"$H_0$", r"$\omega _{CDM}$"], 
