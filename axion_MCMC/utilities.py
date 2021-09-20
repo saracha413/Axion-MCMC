@@ -28,9 +28,9 @@ def JSD(mod_Dl, dat_Dl):
     #        if q[i]/r[i] <=0:
     #            print('q is ', q[i], ' for i = ', i)
 
-    print('p is ', p)
-    print('q is ', q)
-    print('r is ', r)
+    #print('p is ', p)
+    #print('q is ', q)
+    #print('r is ', r)
     Djs = 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
 
     #if Djs == 0:
@@ -50,7 +50,6 @@ def get_power(params, l_min, l_max):
     #CLASS gives results in natural units
     #convert to muK^2 to match data
     T_cmb = 2.7255e6 #temp in microkelvins
-
     #create an instance of CLASS wrapper w/correct params
     cosmo = Class()
     cosmo.set(params)
