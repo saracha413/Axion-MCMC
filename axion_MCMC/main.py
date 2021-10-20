@@ -1,93 +1,117 @@
-from multiprocessing import Pool, RLock
+#adapted from embarassingly paralell MCMC using Pool here:
+# https://linuxtut.com/en/02d66723d03d7f977bb8/
+
+
 from mcmc import *
 from utilities import *
 import matplotlib
-from matplotlib import pyplot as plt
-import corner #for triangle plots
-from p_tqdm import p_map
-from tqdm import tqdm
-from tqdm.contrib.concurrent import process_map
+import signal
+from multiprocessing import Process, TimeoutError
+from classy import Class
 
+import numpy as np
+import numpy.random as rd
+import scipy.stats as st
+import copy, time, os
+from datetime import datetime as dt
 
+from multiprocessing import Pool, freeze_support
+
+import matplotlib.pyplot as plt
+
+import functools
 
 
 if __name__ == '__main__':
 
-	num_walkers = 3
-	l_min = 90
-	l_max = 2000
-	num_steps = 2000
-	num_burn_in = 0
-	name = 'weekend_run_n=3_'
-	n_axion = 3
+    l_min = 90
+    l_max = 2000
+    num_steps = 1
+    num_chains = 1
+    num_burn_in = 0
+    saveFile = False
+    fileName = 'Sept-30_tests.txt'
+    runFromFile = False
+    inFileName = 'Sept-21_runs.txt'
 
 
-	
-	pars_array = []
+    n_axion = 3
+
+    model_pars = read_ini_file('example_axiCLASS.ini', loc='/Users/saravannah/Axion-MCMC/axion_MCMC/')
+    model_pars['n_axion'] = n_axion
+
+    params = {'num_burn_in': num_burn_in,
+              'l_min':  l_min, 'l_max': l_max, 'model_pars':model_pars }
+    #get parameters to start chains from
+
+    if runFromFile:
+        #get full params from file
+        par0, par1, par2, par3, par4 = np.loadtxt(inFileName, unpack = True)
+        #find location of best Djs and start there
+        idx = np.argmin(par4)
+
+        log10_axion_ac_IN = par0[idx]
+        log10_fraction_axion_ac_IN = par1[idx]
+        omega_cdm_IN = par2[idx]
+        H0_IN = par3[idx]
+    else:
+        log10_axion_ac_IN = float(params['model_pars']['log10_axion_ac'])
+        log10_fraction_axion_ac_IN = float(params['model_pars']['log10_fraction_axion_ac'])
+        omega_cdm_IN = float(params['model_pars']['omega_cdm'])
+        H0_IN = float(params['model_pars']['H0'])
+        
+        
+    ######THIS CELL RUNS THE MCMC##########
+
+    freeze_support()
+
+    print('Making ', num_steps, ' samples per chain for ',  num_chains, ' chains. Burn-in rate: ', num_burn_in/num_steps)
+    pool = Pool(processes=num_chains)
+    n_trials_per_process = [num_steps] * num_chains
+    print('pool is open')
+    start = time.time()
+    total_sampling_result = pool.map(mcmc, n_trials_per_process)
+    #total_sampling_result = pool.map(functools.partial(mcmc, num_burn_in, l_min, l_max, n_axion, log10_axion_ac_IN, log10_fraction_axion_ac_IN, omega_cdm_IN, H0_IN), n_trials_per_process)
+    end = time.time()
+    pool.close()
+    print('total exec time: ', end-start)
 
 
 
-	model_pars = read_ini_file('example_axiCLASS.ini', loc='/Users/saravannah/Axion-MCMC/axion_MCMC/')
-	model_pars['n_axion'] = n_axion
-	#model_pars['log10_axion_ac'] = params['log10_axion_ac']
-	#model_pars['log10_fraction_axion_ac'] = params['log10_fraction_axion_ac']
-	#model_pars['omega_cdm'] = params['omega_cdm']
-	#model_pars['H0'] = params['H0']
+    log10_axion_ac = np.zeros((num_chains, len(total_sampling_result[0])))
+    log10_fraction_axion_ac = np.zeros((num_chains, len(total_sampling_result[0])))
+    omega_cdm = np.zeros((num_chains, len(total_sampling_result[0])))
+    H0 = np.zeros((num_chains, len(total_sampling_result[0])))
+    Djs = np.zeros((num_chains, len(total_sampling_result[0])))
 
-	params = {'num_steps': num_steps, 'num_burn_in': num_burn_in,  'name': name, 'l_min':  l_min, 'l_max': l_max, 'model_pars':model_pars }
-
-
-	#saving param values for less typing
-	og_log10_axion_ac = float(params['model_pars']['log10_axion_ac'])
-	og_log10_fraction_axion_ac = float(params['model_pars']['log10_fraction_axion_ac'])
-	og_omega_cdm = float(params['model_pars']['omega_cdm'])
-	og_H0 = float(params['model_pars']['H0'])
-
-	#get the starting points for each chain
-	for i in range(num_walkers):
-
-		temp_pars = params
-		temp_pars['model_pars']['log10_axion_ac'] = np.random.normal(og_log10_axion_ac, abs(og_log10_axion_ac*0.05))
-		temp_pars['model_pars']['log10_fraction_axion_ac'] = np.random.normal(og_log10_fraction_axion_ac, abs(og_log10_fraction_axion_ac*0.05))
-		temp_pars['model_pars']['omega_cdm'] = np.random.normal(og_omega_cdm, abs(og_omega_cdm*0.05))
-		temp_pars['model_pars']['H0'] = np.random.normal(og_H0, abs(og_H0*0.05))
-		temp_pars['name'] = name+str(i)
+    for i in range(num_chains):
+        log10_axion_ac[i] = [col[0] for col in total_sampling_result[i]] #extract column
+        log10_fraction_axion_ac[i] = [col[1] for col in total_sampling_result[i]]
+        omega_cdm[i] = [col[2] for col in total_sampling_result[i]]
+        H0[i] = [col[3] for col in total_sampling_result[i]]
+        Djs[i] = [col[4] for col in total_sampling_result[i]]
 
 
+        
+        
 
-		pars_array.append(temp_pars)
+    if saveFile:
+        #create total array to combine all the chain data
+        big_arr = np.zeros((5, len(log10_axion_ac[0])*num_chains))
 
-	#pool = Pool(processes=num_walkers, initargs=(RLock(),), initializer=tqdm.set_lock)
-	pool = Pool(processes=num_walkers)
+        big_arr[0] = np.concatenate(([log10_axion_ac[i] for i in range(num_chains)]))
+        big_arr[1] = np.concatenate(([log10_fraction_axion_ac[i] for i in range(num_chains)]))
+        big_arr[2] = np.concatenate(([omega_cdm[i] for i in range(num_chains)]))
+        big_arr[3] = np.concatenate(([H0[i] for i in range(num_chains)]))
+        big_arr[4] = np.concatenate(([Djs[i] for i in range(num_chains)]))
+        #save run to file
+        with open(fileName, 'a') as fileObject:
+            np.savetxt(fileObject, np.transpose(big_arr))
+                
+                
+    steps = np.arange(0,len(total_sampling_result[0]))
+    for i in range(num_chains):
+        plt.plot(steps, log10_axion_ac[i])
+    plt.show()
 
 
-	#foo = np.zeros(num_walkers)
-	#test = pars_array
-
-	#for i,j in  enumerate(pars_array):
-	#	foo[i] = i
-	#	test[i] = j
-	#mcmc(1, test[1])
-	#print('done')
-
-
-	print('Starting chains')
-	results = pool.map(mcmc, pars_array) #p_map(mcmc, pars_array)#pool.map(mcmc, pars_array)
-	#jobs = [pool.apply_async(mcmc, args=(pid, j,)) for pid,j in enumerate(pars_array)]
-	print('MCMC finished')
-
-	pool.close()
-	pool.join()
-
-	#print("\n" * (len(argument_list) + 1))
-	#results = [job.get() for job in jobs]
-
-	#dim, nsamples = 4, num_steps
-
-	#samples = np.array(results)
-	#samples = samples.T
-
-	#figure = corner.corner(samples, 
-	#                       labels=[r"$f_{EDE}(a_c)$", r"$log_{10}(a_c)$", r"$H_0$", r"$\omega _{CDM}$"], 
-	#                      quantiles=[0.16, 0.5, 0.84],
-	#                       show_titles=True, title_kwargs={"fontsize": 12})

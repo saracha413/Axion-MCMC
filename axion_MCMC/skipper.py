@@ -5,7 +5,8 @@ from mcmc import *
 from utilities import *
 import matplotlib
 import signal
-from multiprocessing import Process, TimeoutError, ParamValueError
+import multiprocessing
+from multiprocessing import Process #, TimeoutError, ParamValueError
 from classy import Class
 from mcmc import *
 
@@ -51,7 +52,7 @@ if __name__ == '__main__':
 	l_max = 2000
 	num_steps = 2000
 	num_burn_in = 0
-	name = 'Sept-16_runs'
+	name = 'Sept-20_runs'
 	n_axion = 3
 
 	num_cores = 10

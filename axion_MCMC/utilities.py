@@ -46,7 +46,7 @@ def JSD(mod_Dl, dat_Dl):
 #currently set to TT only
 #modified from https://github.com/lesgourg/class_public/wiki/Python-wrapper
 def get_power(params, l_min, l_max):
-        
+
     #CLASS gives results in natural units
     #convert to muK^2 to match data
     T_cmb = 2.7255e6 #temp in microkelvins
