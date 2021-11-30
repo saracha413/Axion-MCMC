@@ -13,33 +13,14 @@ def JSD(mod_Dl, dat_Dl):
     p, q = modal(mod_Dl), modal(dat_Dl)
     r = 1/2 * (p+q)
     
-    #try:
-    #    return 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
-    #except RuntimeWarning:
-    #    print('p is ', p)
-    #    print('q is ', q)
-    #    pass
-    #if any(p/r <= 0):
-    #    for i in range(len(p)):
-    #        if p[i]/r[i] <=0:
-    #            print('p is ', p[i], ' for i = ', i)
-    #if any(q/r <= 0):
-    #    for i in range(len(q)):
-    #        if q[i]/r[i] <=0:
-    #            print('q is ', q[i], ' for i = ', i)
 
-    #print('p is ', p)
-    #print('q is ', q)
-    #print('r is ', r)
-    Djs = 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
-
-    #if Djs == 0:
-    #    print('Djs = 0!')
-    #    print('First term is ', np.nansum(p*np.log(p/r)),' and second term is ',  np.nansum(q*np.log(q/r)))
+    if any(i<=0 for i in p) or any(i<=0 for i in q):
+        Djs = 1
+    else:
+        Djs = 1/2 * np.nansum(p*np.log(p/r)) + 1/2 * np.nansum(q*np.log(q/r))
 
     return Djs
-        
-    
+
     
     
 #get power spectrum from CLASS for a given parameter set
