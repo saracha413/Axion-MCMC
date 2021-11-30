@@ -2,7 +2,8 @@
 .DS_store
 *.save
 *.lprof
-
+_pycache_
+.ipynb_checkpoints
 
 # Ignore folders folders of chain runs
 *-runs
@@ -14,3 +15,10 @@ Untitled*
 
 # Ignore figures
 *.png
+
+# Ignore old/unused files and chains
+Misc_chains
+Results from modified pheno ini
+old_MCMC_files
+bottleneck_profiler_results.txt
+line_profiler
