@@ -1,11 +1,16 @@
-# Ignore Mac system files
+# Ignore Mac and ipynb system files
 .DS_store
+*.save
+*.lprof
+
 
 # Ignore folders folders of chain runs
 *-runs
+*.zip
 
-# Ignore untitled ipynbs (usually testing files)
+# Ignore untitled testing files
 Untitled*
+*test*
 
 # Ignore figures
 *.png
