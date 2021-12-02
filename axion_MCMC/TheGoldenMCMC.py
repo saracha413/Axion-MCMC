@@ -4,7 +4,7 @@ from mcmc import *
 import numpy as np
 import multiprocessing as mp
 from classy import Class
-from classy import CosmoComputationError
+from classy import CosmoComputationError, CosmoSevereError
 
 import os, os.path, copy
 
@@ -45,6 +45,7 @@ def func(num_it):
     stdDevs = [str(abs(float(x)*0.1)) for x in p_current]
 
     fEDE_stdDev = 10**float(p_current[1])*0.1
+    #print('std is ', fEDE_stdDev)
 
     #assign new starting places for each chain
     #note since p_current is an array not a dict, have to convert valeus in param_ranges to a list as well
@@ -76,11 +77,16 @@ def func(num_it):
     while i < num_it:
 
         #need to take step that's flat in fEDE not log10(fEDE), so treat separately from rest of params
-        fEDE_current = 10**p_current[1]
+        fEDE_current = 10**float(p_current[1])
         fEDE_propose = np.random.normal(fEDE_current, fEDE_stdDev)
+
+
+        #print('fEDE_propose is ', fEDE_propose)
+
 
         p_propose = np.random.normal(p_current, stdDevs)
         p_propose[1] = np.log10(fEDE_propose) #overwrite with fEDE chosen from flat prior
+        #print('log10fEDE is ', p_propose[1])
 
 
         ####TO-DO: write this fxn to use whatever variable param you want. hard-coded for now
@@ -94,7 +100,7 @@ def func(num_it):
         #NOTE: you can organize this more pythonically by changing param_range to be a dict and using the key from model_pars
         allParamsWithinRange = True
         for param in param_ranges:
-            if model_pars[param] < param_ranges[param][0] or model_pars[param] > param_ranges[param][1]:
+            if model_pars[param] < param_ranges[param][0] or model_pars[param] > param_ranges[param][1]  or np.isnan(model_pars[param]):
                 allParamsWithinRange = False
 
 
@@ -117,9 +123,12 @@ def func(num_it):
                 pass
 
             except CosmoComputationError:
-                print('Step number ', i)
+                print('Computation error at step number ', i)
                 print('Param values for log10_axion_ac, log10_fraction_axion_ac, omega_cdm, and H0 are', p_propose[0], p_propose[1], p_propose[2], p_propose[3])
 
+            except CosmoSevereError:
+                print('Params causing Classy to crash. log10_axion_ac is ', model_pars['log10_axion_ac'], ' while log10_fraction_axion_ac is ', model_pars['log10_fraction_axion_ac'])
+                print('fEDE is ', fEDE_propose)
 
 
 
@@ -135,11 +144,11 @@ def func(num_it):
 
 
 if __name__ == '__main__':
-    num_chains = 1
-    num_steps = 5
+    num_chains = 5
+    num_steps = 2000
     saveFile = True
     #if saveFile:
-    fileName = 'delete.txt'
+    fileName = 'Dec-2.txt'
 
 
 
