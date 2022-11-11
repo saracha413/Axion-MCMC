@@ -1,5 +1,5 @@
 from utilities import *
-from mcmc import *
+#from mcmc import *
 
 import numpy as np
 import multiprocessing as mp
@@ -20,13 +20,49 @@ def change_starting_place(pars_list, bounds):
         new_pars_list[i] = np.random.uniform(bounds[i][0], bounds[i][1])
 
     return new_pars_list
+    
+    
+#calculate Gelman-Rubin statistic to test for chain convergence
+#take an array of arrays of samples for each chain
+def grubin(samples, burn_in_steps, num_chains, num_steps):
+    L = num_steps - burn_in_steps #np.zeros(num_chains)
+    chain_mean = np.zeros(num_chains) #mean w/in chain
+    
+
+    for i in range(num_chains):
+        if type(samples[i]) == np.float64:
+            print('Chain number ', str(i), ' has just one sample. More steps need to be run for convergence.')
+            chain_mean[i] = samples[i]
+            
+        elif len(samples[i]) == 0:
+            print('Chain number ', str(i), ' is empty. More steps need to be run for convergence.')
+            chain_mean[i] = float("NaN")
+        else:
+            #remove burn-in steps
+            #samples[i] = samples[burn_in_steps:len(samples[i])-1] #BURN-IN STEPS ALREADY REMOVED IN MCMC
+            #get mean within chain
+            #chain_mean[i] = 1/L[i] * np.sum(samples[i])
+            chain_mean[i] = 1/L * np.sum(samples[i])
+            
+            
+    grand_mean = 1/num_chains * np.sum(chain_mean) #mean of means
+    
+    s = np.zeros(num_chains)
+    for i in range(num_chains):
+        s[i] = 1/(L-1) * np.sum((samples[i]-chain_mean[i])**2) #variance within chains
+    B = L/(num_chains-1) * np.sum((chain_mean[i] - grand_mean)**2) #variance between chains
+    W = 1/num_chains * np.sum(s)**2 #weighted variance within chains
+    R = ((L-1)/L * W + 1/L * B)/W #Gelman-Rubin statistic
+    #print(L, W, B, R)
+    
+    return R
 
 def func(num_it):
 
     num_burn_in = 0
     l_min = 90
     l_max = 2000
-    n_axion = 2
+    n_axion = 3
 
 
     #set min and max for sampled params
@@ -34,6 +70,7 @@ def func(num_it):
     param_ranges =  {'log10_axion_ac':[-4.6, -3], 'log10_fraction_axion_ac': [-2, -0.82], 'omega_cdm': [0.095, 0.15], 'H0': [65, 80]}
 
 
+    #specify input param file
     model_pars = read_ini_file('example_axiCLASS.ini', loc='/Users/saravannah/Axion-MCMC/axion_MCMC/')
     model_pars['n_axion'] = n_axion
 
@@ -85,7 +122,7 @@ def func(num_it):
 
 
         p_propose = np.random.normal(p_current, stdDevs)
-        p_propose[1] = np.log10(fEDE_propose) #overwrite with fEDE chosen from flat prior
+        p_propose[1] = np.log10(fEDE_propose) #overwrite with fEDE chosen from gaussian distrib
         #print('log10fEDE is ', p_propose[1])
 
 
@@ -144,11 +181,11 @@ def func(num_it):
 
 
 if __name__ == '__main__':
-    num_chains = 5
-    num_steps = 2000
+    num_chains = 12
+    num_steps = 5000
     saveFile = True
     #if saveFile:
-    fileName = 'Dec-2.txt'
+    fileName = 'Nov-8.txt'
 
 
 
@@ -178,7 +215,10 @@ if __name__ == '__main__':
     H0 = np.zeros((num_chains, len(total_sampling_result[0])))
     Djs = np.zeros((num_chains, len(total_sampling_result[0])))
     
-
+    num_params = 4+1 #number of parameters you're varying plus Djs
+    #collection of all the chains (for G-R calculation)
+    super_chain_array = np.zeros((num_chains, num_params, num_steps))
+    
     for i in range(num_chains):
 
         log10_axion_ac[i] = [col[0] for col in total_sampling_result[i]] #extract column
@@ -187,6 +227,20 @@ if __name__ == '__main__':
         H0[i] = [col[3] for col in total_sampling_result[i]]
         Djs[i] = [col[4] for col in total_sampling_result[i]]
         chain_arr = np.array([log10_axion_ac[i], log10_fraction_axion_ac[i], omega_cdm[i], H0[i], Djs[i]])
+        super_chain_array[i] = chain_arr
         chainFileName = fileName.split('.tx')[0] + '#'+str(i)+'.txt'
         np.savetxt(chainFileName, np.transpose(chain_arr))
+        
+        
+    
+    burn_in_steps = 0
 
+    gr_log10_axion_ac = grubin(super_chain_array[:,0,:], burn_in_steps, num_chains, num_steps)
+    gr_log10_fraction_ac = grubin(super_chain_array[:,1,:], burn_in_steps, num_chains, num_steps)
+    gr_omega_cdm = grubin(super_chain_array[:,2,:], burn_in_steps, num_chains, num_steps)
+    gr_H0 = grubin(super_chain_array[:,3,:], burn_in_steps, num_chains, num_steps)
+    
+    print('Gelman-Rubin statistic for log10_axion_ac is ',gr_log10_axion_ac)
+    print('Gelman-Rubin statistic for log10_fraction_ac is ', gr_log10_fraction_ac)
+    print('Gelman-Rubin statistic for omega_cdm is ', gr_omega_cdm)
+    print('Gelman-Rubin statistic for H0 is ', gr_H0)
