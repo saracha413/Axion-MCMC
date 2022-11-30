@@ -68,6 +68,7 @@ def func(num_it):
     #set min and max for sampled params
     #note this kind of setting a prior :
     param_ranges =  {'log10_axion_ac':[-4.6, -3], 'log10_fraction_axion_ac': [-2, -0.82], 'omega_cdm': [0.095, 0.15], 'H0': [65, 80]}
+    
 
 
     #specify input param file
@@ -149,8 +150,10 @@ def func(num_it):
 
                     JSD_propose = JSD(Dl_propose, Dl_data)
                     x = JSD_propose/JSD_current
-
-                    if x < 1+np.random.uniform():
+                    
+                    #Metropolis-Hastings acceptance
+                    
+                    if x < 0.5+np.random.uniform():
                         p_current = p_propose
                         JSD_current = JSD_propose
                         num_accept = num_accept + 1
@@ -182,10 +185,10 @@ def func(num_it):
 
 if __name__ == '__main__':
     num_chains = 12
-    num_steps = 5000
+    num_steps = 1000
     saveFile = True
     #if saveFile:
-    fileName = 'Nov-8.txt'
+    fileName = 'Nov-16.txt'
 
 
 
